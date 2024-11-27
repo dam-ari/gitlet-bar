@@ -17,16 +17,32 @@ install_script() {
     cp "$SCRIPT_PATH" "$INSTALL_PATH"
     chmod +x "$INSTALL_PATH"
 
-    # Add to PATH if not already included
+    # Add ~/.local/bin to PATH if not already present
+    SHELL_CONFIG_FILE=""
+
     if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-        echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$HOME/.bashrc"
-        echo "Installation complete. Restart your terminal or run 'source ~/.bashrc' to use $SCRIPT_NAME globally."
+        # Detect shell type and select the correct configuration file
+        if [ -n "$ZSH_VERSION" ]; then
+            SHELL_CONFIG_FILE="$HOME/.zshrc"
+        elif [ -n "$BASH_VERSION" ]; then
+            SHELL_CONFIG_FILE="$HOME/.bashrc"
+        elif [ -n "$FISH_VERSION" ]; then
+            SHELL_CONFIG_FILE="$HOME/.config/fish/config.fish"
+        else
+            SHELL_CONFIG_FILE="$HOME/.profile"
+        fi
+
+        # Add ~/.local/bin to the shell configuration file
+        echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_CONFIG_FILE"
+        echo "Added $INSTALL_DIR to PATH in $SHELL_CONFIG_FILE. Restart your terminal or run 'source $SHELL_CONFIG_FILE' to apply changes."
     else
-        echo "Installation complete. You can now use $SCRIPT_NAME globally."
+        echo "$INSTALL_DIR is already in PATH."
     fi
 
+    echo "Installation complete. You can now use $SCRIPT_NAME globally."
     exit 0
 }
+
 
 # Function to uninstall the script
 uninstall_script() {
