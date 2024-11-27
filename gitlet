@@ -3,6 +3,31 @@
 # Script name
 SCRIPT_NAME="gitlen"
 
+detect_shell_config_file() {
+    if [ -n "$ZSH_VERSION" ]; then
+        echo "$HOME/.zshrc"
+    elif [ -n "$BASH_VERSION" ]; then
+        echo "$HOME/.bashrc"
+    elif [ -n "$FISH_VERSION" ]; then
+        echo "$HOME/.config/fish/config.fish"
+    else
+        echo "$HOME/.profile"  # Fallback for other shells
+    fi
+}
+
+# Add ~/.local/bin to PATH if not already present
+update_path() {
+    SHELL_CONFIG_FILE=$(detect_shell_config_file)
+    
+    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+        echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_CONFIG_FILE"
+        echo "Added $INSTALL_DIR to PATH in $SHELL_CONFIG_FILE."
+        echo "Please restart your terminal or run 'source $SHELL_CONFIG_FILE' to apply the changes."
+    else
+        echo "$INSTALL_DIR is already in PATH."
+    fi
+}
+
 # Function to install the script
 install_script() {
     # Determine the installation directory (default: ~/.local/bin)
@@ -20,24 +45,8 @@ install_script() {
     # Add ~/.local/bin to PATH if not already present
     SHELL_CONFIG_FILE=""
 
-    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-        # Detect shell type and select the correct configuration file
-        if [ -n "$ZSH_VERSION" ]; then
-            SHELL_CONFIG_FILE="$HOME/.zshrc"
-        elif [ -n "$BASH_VERSION" ]; then
-            SHELL_CONFIG_FILE="$HOME/.bashrc"
-        elif [ -n "$FISH_VERSION" ]; then
-            SHELL_CONFIG_FILE="$HOME/.config/fish/config.fish"
-        else
-            SHELL_CONFIG_FILE="$HOME/.profile"
-        fi
-
-        # Add ~/.local/bin to the shell configuration file
-        echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_CONFIG_FILE"
-        echo "Added $INSTALL_DIR to PATH in $SHELL_CONFIG_FILE. Restart your terminal or run 'source $SHELL_CONFIG_FILE' to apply changes."
-    else
-        echo "$INSTALL_DIR is already in PATH."
-    fi
+    # Update the PATH
+    update_path
 
     echo "Installation complete. You can now use $SCRIPT_NAME globally."
     exit 0
