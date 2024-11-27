@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# Script name
+SCRIPT_NAME="gitlen"
+
+# Function to install the script
+install_script() {
+    # Determine the installation directory (default: ~/.local/bin)
+    INSTALL_DIR="$HOME/.local/bin"
+    mkdir -p "$INSTALL_DIR"
+
+    # Get the current script's absolute path
+    SCRIPT_PATH="$(realpath "$0")"
+    INSTALL_PATH="$INSTALL_DIR/$SCRIPT_NAME"
+
+    # Copy this script to the installation directory
+    cp "$SCRIPT_PATH" "$INSTALL_PATH"
+    chmod +x "$INSTALL_PATH"
+
+    # Add to PATH if not already included
+    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+        echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$HOME/.bashrc"
+        echo "Installation complete. Restart your terminal or run 'source ~/.bashrc' to use $SCRIPT_NAME globally."
+    else
+        echo "Installation complete. You can now use $SCRIPT_NAME globally."
+    fi
+
+    exit 0
+}
+
+# Function to uninstall the script
+uninstall_script() {
+    INSTALL_DIR="$HOME/.local/bin"
+    INSTALL_PATH="$INSTALL_DIR/$SCRIPT_NAME"
+
+    # Check if the script exists in the installation directory
+    if [ -f "$INSTALL_PATH" ]; then
+        rm "$INSTALL_PATH"
+        echo "$SCRIPT_NAME has been uninstalled."
+    else
+        echo "Error: $SCRIPT_NAME is not installed."
+        exit 1
+    fi
+
+    exit 0
+}
+
+# Function to open the script in the editor
+edit_script() {
+    # Get the current script's absolute path
+    SCRIPT_PATH="$(realpath "$0")"
+
+    # Prompt the user to choose an editor if not set
+    if [ -z "$EDITOR" ]; then
+        echo "No default editor found. Please specify your preferred editor (e.g., code, vim, nano):"
+        read -r EDITOR
+    fi
+
+    # Open the script in the chosen editor
+    if ! command -v "$EDITOR" >/dev/null 2>&1; then
+        echo "Error: Editor '$EDITOR' not found. Please install it or specify another editor."
+        exit 1
+    fi
+
+    "$EDITOR" "$SCRIPT_PATH"
+    exit 0
+}
+
+# Check for flags
+if [ "$1" == "-i" ] || [ "$1" == "--install" ]; then
+    install_script
+fi
+
+if [ "$1" == "--uninstall" ]; then
+    uninstall_script
+fi
+
+if [ "$1" == "--dev" ]; then
+    edit_script
+fi
+
+# Check if the GitHub folder URL is provided as an argument
+if [ -z "$1" ]; then
+    echo "Usage: $SCRIPT_NAME <GitHub Folder URL>"
+    echo "Options:"
+    echo "  -i, --install    Install the script for global use."
+    echo "  --uninstall      Uninstall the script from the system."
+    echo "  --dev            Open the script for editing in your preferred editor."
+    exit 1
+fi
+
+# GitHub folder URL
+GITHUB_FOLDER_URL="$1"
+
+# Extract raw URLs for all files in the folder
+RAW_URLS=$(curl -s "$GITHUB_FOLDER_URL" | grep -oP 'href="[^"]+/blob/[^"]+"' | sed 's/href="//;s/"//')
+
+# Base URL for GitHub raw files
+BASE_URL="https://raw.githubusercontent.com"
+
+# Check if any files were found
+if [ -z "$RAW_URLS" ]; then
+    echo "No files found in the specified folder URL. Please check the URL and try again."
+    exit 1
+fi
+
+# Extract folder name from the GitHub URL and create a local folder
+FOLDER_NAME=$(basename "$GITHUB_FOLDER_URL")
+mkdir -p "$FOLDER_NAME"
+cd "$FOLDER_NAME" || exit 1
+
+# Loop through each file and download it
+for FILE_URL in $RAW_URLS; do
+    # Construct the correct raw file URL
+    RAW_FILE_URL="$BASE_URL$(echo "$FILE_URL" | sed 's#/blob##')"
+    FILE_NAME=$(basename "$RAW_FILE_URL")
+    echo "Downloading $RAW_FILE_URL..."
+    
+    # Download the file and ensure it's not empty
+    wget -q "$RAW_FILE_URL" -O "$FILE_NAME"
+    if [ $? -ne 0 ] || [ ! -s "$FILE_NAME" ]; then
+        echo "Failed to download $RAW_FILE_URL or file is empty. Removing..."
+        rm -f "$FILE_NAME"
+    else
+        echo "Downloaded $FILE_NAME successfully."
+    fi
+done
+
+echo "All files downloaded into the folder: $FOLDER_NAME"
